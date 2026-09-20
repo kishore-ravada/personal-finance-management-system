@@ -1,0 +1,19 @@
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Build outputs
+**/target/
+**/dist/
+**/build/
+**/node_modules/
+
+# Environment files and logs
+.env
+*.log
+
+# Docker persistent data
+mysql_data/
