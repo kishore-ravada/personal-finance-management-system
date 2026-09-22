@@ -9,18 +9,10 @@ pipeline {
             }
         }
 
-        stage('Backend Build') {
-            steps {
-                dir('backend') {
-                    bat 'mvn clean compile'
-                }
-            }
-        }
-
         stage('Backend Test') {
             steps {
                 dir('backend') {
-                    bat 'mvn test'
+                    sh 'mvn test'
                 }
             }
         }
@@ -28,7 +20,16 @@ pipeline {
         stage('Frontend Test') {
             steps {
                 dir('frontend') {
-                    bat 'npm run test:run'
+                    sh 'npm ci'
+                    sh 'npm run test:run'
+                }
+            }
+        }
+
+        stage('Backend Build') {
+            steps {
+                dir('backend') {
+                    sh 'mvn package -DskipTests'
                 }
             }
         }
@@ -36,29 +37,26 @@ pipeline {
         stage('Frontend Build') {
             steps {
                 dir('frontend') {
-                    bat 'npm run build'
+                    sh 'npm run build'
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                bat 'docker compose build'
+                sh 'docker build -t finance-backend:ci ./backend'
+                sh 'docker build -t finance-frontend:ci ./frontend'
             }
         }
     }
 
     post {
         success {
-            echo 'CI PIPELINE PASSED'
+            echo 'CI pipeline completed successfully!'
         }
 
         failure {
-            echo 'CI PIPELINE FAILED'
-        }
-
-        always {
-            echo 'CI pipeline execution completed.'
+            echo 'CI pipeline failed. Check the stage logs.'
         }
     }
 }
