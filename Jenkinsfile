@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        // Tells Jenkins to inject the managed versions of our compilers into the path
-        maven 'maven-3'
-        nodejs 'node-20'
-    }
-
     stages {
         stage('Checkout') {
             steps {
