@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    tools {
+        // Tells Jenkins to inject the managed versions of our compilers into the path
+        maven 'maven-3'
+        nodejs 'node-20'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -9,9 +15,6 @@ pipeline {
         }
 
         stage('Backend Test') {
-            agent {
-                docker { image 'maven:3.9.6-eclipse-temurin-21' } // Pulls a container with Maven and Java 21 pre-installed
-            }
             steps {
                 dir('backend') {
                     sh 'mvn test'
@@ -20,9 +23,6 @@ pipeline {
         }
 
         stage('Frontend Test & Build') {
-            agent {
-                docker { image 'node:20-alpine' } // Pulls a container with Node.js and npm pre-installed
-            }
             steps {
                 dir('frontend') {
                     sh 'npm install'
@@ -33,9 +33,6 @@ pipeline {
         }
 
         stage('Backend Build') {
-            agent {
-                docker { image 'maven:3.9.6-eclipse-temurin-21' }
-            }
             steps {
                 dir('backend') {
                     sh 'mvn package -DskipTests'
@@ -45,7 +42,6 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                // Runs back on the base agent where we shared the Docker daemon socket
                 sh 'docker build -t finance-backend:ci ./backend'
                 sh 'docker build -t finance-frontend:ci ./frontend'
             }
