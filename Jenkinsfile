@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -17,11 +16,13 @@ pipeline {
             }
         }
 
-        stage('Frontend Test') {
+        stage('Frontend Test & Build') {
             steps {
                 dir('frontend') {
-                    sh 'npm ci'
+                    // Safe dynamic package installation without requiring a lockfile
+                    sh 'npm install'
                     sh 'npm run test:run'
+                    sh 'npm run build'
                 }
             }
         }
@@ -30,14 +31,6 @@ pipeline {
             steps {
                 dir('backend') {
                     sh 'mvn package -DskipTests'
-                }
-            }
-        }
-
-        stage('Frontend Build') {
-            steps {
-                dir('frontend') {
-                    sh 'npm run build'
                 }
             }
         }
@@ -54,7 +47,6 @@ pipeline {
         success {
             echo 'CI pipeline completed successfully!'
         }
-
         failure {
             echo 'CI pipeline failed. Check the stage logs.'
         }
