@@ -38,14 +38,19 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                          -Dsonar.projectKey=personal-finance-management \
-                          -Dsonar.projectName="Personal Finance Management" \
-                          -Dsonar.sources=backend/src/main,frontend/src \
-                          -Dsonar.java.binaries=backend/target/classes \
-                          -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
-                    '''
+                    script {
+                        // Dynamically pull the path to your Jenkins-configured SonarScanner tool
+                        def scannerHome = tool 'SonarScanner'
+
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                              -Dsonar.projectKey=personal-finance-management \
+                              -Dsonar.projectName="Personal Finance Management" \
+                              -Dsonar.sources=backend/src/main,frontend/src \
+                              -Dsonar.java.binaries=backend/target/classes \
+                              -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
+                        """
+                    }
                 }
             }
         }
