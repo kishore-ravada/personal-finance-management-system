@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -34,6 +35,21 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        sonar-scanner \
+                          -Dsonar.projectKey=personal-finance-management \
+                          -Dsonar.projectName="Personal Finance Management" \
+                          -Dsonar.sources=backend/src/main,frontend/src \
+                          -Dsonar.java.binaries=backend/target/classes \
+                          -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
+                    '''
+                }
+            }
+        }
+
         stage('Docker Build') {
             steps {
                 sh 'docker build -t finance-backend:ci ./backend'
@@ -46,6 +62,7 @@ pipeline {
         success {
             echo 'CI pipeline completed successfully!'
         }
+
         failure {
             echo 'CI pipeline failed. Check the stage logs.'
         }
