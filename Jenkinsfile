@@ -1,14 +1,11 @@
 pipeline {
     agent any
-
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-
         stage('Backend Test') {
             steps {
                 dir('backend') {
@@ -16,7 +13,6 @@ pipeline {
                 }
             }
         }
-
         stage('Frontend Test & Build') {
             steps {
                 dir('frontend') {
@@ -26,7 +22,6 @@ pipeline {
                 }
             }
         }
-
         stage('Backend Build') {
             steps {
                 dir('backend') {
@@ -34,27 +29,31 @@ pipeline {
                 }
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
-                        // Dynamically pull the path to your Jenkins-configured SonarScanner tool
                         def scannerHome = tool 'SonarScanner'
-
                         sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                              -Dsonar.projectKey=personal-finance-management \
-                              -Dsonar.projectName="Personal Finance Management" \
-                              -Dsonar.sources=backend/src/main,frontend/src \
-                              -Dsonar.java.binaries=backend/target/classes \
-                              -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
+                        ${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=personal-finance-management \
+                        -Dsonar.projectName="Personal Finance Management" \
+                        -Dsonar.sources=backend/src/main,frontend/src \
+                        -Dsonar.java.binaries=backend/target/classes \
+                        -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
                         """
                     }
                 }
             }
         }
-
+        stage('OWASP Dependency-Check') {
+            steps {
+                dependencyCheck(
+                    odcInstallation: 'DependencyCheck',
+                    additionalArguments: '--scan . --format XML --format HTML --out dependency-check-report'
+                )
+            }
+        }
         stage('Docker Build') {
             steps {
                 sh 'docker build -t finance-backend:ci ./backend'
@@ -62,12 +61,10 @@ pipeline {
             }
         }
     }
-
     post {
         success {
             echo 'CI pipeline completed successfully!'
         }
-
         failure {
             echo 'CI pipeline failed. Check the stage logs.'
         }
