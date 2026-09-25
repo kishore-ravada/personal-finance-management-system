@@ -50,7 +50,7 @@ pipeline {
             steps {
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
-                    additionalArguments: '--scan . --format XML --format HTML --out dependency-check-report'
+                    additionalArguments: '--scan . --format ALL --out dependency-check-report'
                 )
             }
         }
