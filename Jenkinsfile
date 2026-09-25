@@ -48,6 +48,9 @@ pipeline {
         }
         stage('OWASP Dependency-Check') {
             steps {
+                sh 'mkdir -p dependency-check-report'
+
+                
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
                     additionalArguments: '--scan . --format ALL --out dependency-check-report'
