@@ -8,6 +8,16 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Gitleaks Secret Scan') {
+              steps {
+                 sh '''
+                  docker run --rm \
+                  -v "$WORKSPACE:/repo" \
+                  zricethezav/gitleaks:latest \
+                  detect --source=/repo --no-banner --redact
+                  '''
+                }
+             }
 
         stage('Backend Test') {
             steps {
