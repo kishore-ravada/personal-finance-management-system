@@ -90,17 +90,17 @@ pipeline {
 
         stage('Trivy Container Security Scan') {
             steps {
-                // Run Trivy via Docker container to scan both local images with strict quality gates
+                // Run Trivy via Docker with an extended 15-minute timeout for deep Java layer analysis
                 sh '''
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy:latest \
-                        image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
+                        image --timeout 15m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
 
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy:latest \
-                        image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
+                        image --timeout 15m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
                 '''
             }
         }
