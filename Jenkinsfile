@@ -8,7 +8,7 @@ pipeline {
                 checkout scm
             }
         }
-        
+
         stage('Gitleaks Secret Scan') {
             steps {
                 sh '''
@@ -90,9 +90,18 @@ pipeline {
 
         stage('Trivy Container Security Scan') {
             steps {
-                // Quality Gate: Fails pipeline if HIGH or CRITICAL vulnerabilities are found
-                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest'
-                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest'
+                // Run Trivy via Docker container to scan both local images with strict quality gates
+                sh '''
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        aquasec/trivy:latest \
+                        image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
+
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        aquasec/trivy:latest \
+                        image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
+                '''
             }
         }
     }
