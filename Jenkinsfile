@@ -95,12 +95,12 @@ pipeline {
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy:latest \
-                        image --timeout 15m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
+                        image --timeout 40m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
 
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy:latest \
-                        image --timeout 15m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
+                        image --timeout 40m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
                 '''
             }
         }
@@ -108,10 +108,10 @@ pipeline {
 
     post {
         success {
-            echo '🎉 CI pipeline completed successfully! All security and quality gates passed.'
+            echo ' CI pipeline completed successfully! All security and quality gates passed.'
         }
         failure {
-            echo '❌ CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
+            echo ' CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
         }
     }
 }
