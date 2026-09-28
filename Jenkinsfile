@@ -27,9 +27,9 @@ pipeline {
         stage('Backend Test') {
             steps {
                 dir('backend') {
-                    // Clean up any corrupted surefire cache in Jenkins and re-download fresh
+                    // Clean up any corrupted surefire cache and run tests with network retry handlers
                     sh 'rm -rf ~/.m2/repository/org/apache/maven/surefire'
-                    sh 'mvn clean test -U'
+                    sh 'mvn clean test -U -Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.http.retryHandler.requestSeconds=10'
                 }
             }
         }
@@ -47,7 +47,7 @@ pipeline {
         stage('Backend Build') {
             steps {
                 dir('backend') {
-                    sh 'mvn package -DskipTests'
+                    sh 'mvn package -DskipTests -U -Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.http.retryHandler.requestSeconds=10'
                 }
             }
         }
@@ -83,8 +83,8 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t finance-backend:ci ./backend'
-                sh 'docker build -t finance-frontend:ci ./frontend'
+                sh 'docker build -t personal-finance-management-backend:latest ./backend'
+                sh 'docker build -t personal-finance-management-frontend:latest ./frontend'
             }
         }
 
@@ -92,17 +92,17 @@ pipeline {
             steps {
                 // Quality Gate: Fails pipeline if HIGH or CRITICAL vulnerabilities are found
                 sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest'
-                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest'
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest'
             }
         }
     }
 
     post {
         success {
-            echo ' CI pipeline completed successfully! All security and quality gates passed.'
+            echo '🎉 CI pipeline completed successfully! All security and quality gates passed.'
         }
         failure {
-            echo ' CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
+            echo '❌ CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
         }
     }
 }
