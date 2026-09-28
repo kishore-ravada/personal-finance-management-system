@@ -13,13 +13,13 @@ pipeline {
             steps {
                 sh '''
                     docker run --rm \
-                      -v "$WORKSPACE:/repo" \
-                      zricethezav/gitleaks:latest \
-                      detect \
-                      --source=/repo \
-                      --no-git \
-                      --no-banner \
-                      --redact
+                        -v "$WORKSPACE:/repo" \
+                        zricethezav/gitleaks:latest \
+                        detect \
+                        --source=/repo \
+                        --no-git \
+                        --no-banner \
+                        --redact
                 '''
             }
         }
@@ -54,16 +54,14 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
-
                         def scannerHome = tool 'SonarScanner'
-
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
-                              -Dsonar.projectKey=personal-finance-management \
-                              -Dsonar.projectName="Personal Finance Management" \
-                              -Dsonar.sources=backend/src/main,frontend/src \
-                              -Dsonar.java.binaries=backend/target/classes \
-                              -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
+                                -Dsonar.projectKey=personal-finance-management \
+                                -Dsonar.projectName="Personal Finance Management" \
+                                -Dsonar.sources=backend/src/main,frontend/src \
+                                -Dsonar.java.binaries=backend/target/classes \
+                                -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
                         """
                     }
                 }
@@ -72,9 +70,7 @@ pipeline {
 
         stage('OWASP Dependency-Check') {
             steps {
-
                 sh 'mkdir -p dependency-check-report'
-
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
                     nvdCredentialsId: 'nvd-api-key',
@@ -85,22 +81,26 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-
                 sh 'docker build -t finance-backend:ci ./backend'
-
                 sh 'docker build -t finance-frontend:ci ./frontend'
+            }
+        }
+
+        stage('Trivy Container Security Scan') {
+            steps {
+                // Quality Gate: Fails pipeline if HIGH or CRITICAL vulnerabilities are found
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 finance-backend:ci'
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 finance-frontend:ci'
             }
         }
     }
 
     post {
-
         success {
-            echo 'CI pipeline completed successfully!'
+            echo ' CI pipeline completed successfully! All security and quality gates passed.'
         }
-
         failure {
-            echo 'CI pipeline failed. Check the stage logs.'
+            echo ' CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
         }
     }
 }
