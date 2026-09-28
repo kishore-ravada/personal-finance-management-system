@@ -27,7 +27,9 @@ pipeline {
         stage('Backend Test') {
             steps {
                 dir('backend') {
-                    sh 'mvn test'
+                    // Clean up any corrupted surefire cache in Jenkins and re-download fresh
+                    sh 'rm -rf ~/.m2/repository/org/apache/maven/surefire'
+                    sh 'mvn clean test -U'
                 }
             }
         }
@@ -89,8 +91,8 @@ pipeline {
         stage('Trivy Container Security Scan') {
             steps {
                 // Quality Gate: Fails pipeline if HIGH or CRITICAL vulnerabilities are found
-                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 finance-backend:ci'
-                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 finance-frontend:ci'
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest'
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest'
             }
         }
     }
