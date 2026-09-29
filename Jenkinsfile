@@ -27,7 +27,6 @@ pipeline {
         stage('Backend Test') {
             steps {
                 dir('backend') {
-                    // Clean up any corrupted surefire cache and run tests with network retry handlers
                     sh 'rm -rf ~/.m2/repository/org/apache/maven/surefire'
                     sh 'mvn clean test -U -Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.http.retryHandler.requestSeconds=10'
                 }
@@ -57,6 +56,7 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     script {
                         def scannerHome = tool 'SonarScanner'
+
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=personal-finance-management \
@@ -73,6 +73,7 @@ pipeline {
         stage('OWASP Dependency-Check') {
             steps {
                 sh 'mkdir -p dependency-check-report'
+
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
                     nvdCredentialsId: 'nvd-api-key',
@@ -83,24 +84,161 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t personal-finance-management-backend:latest ./backend'
-                sh 'docker build -t personal-finance-management-frontend:latest ./frontend'
+                sh '''
+                    docker build \
+                        -t kittuuu/personal-finance-backend:latest \
+                        ./backend
+
+                    docker build \
+                        -t kittuuu/personal-finance-frontend:latest \
+                        ./frontend
+                '''
             }
         }
 
         stage('Trivy Container Security Scan') {
             steps {
-                // Run Trivy via Docker with an extended 15-minute timeout for deep Java layer analysis
                 sh '''
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        aquasec/trivy:latest \
-                        image --timeout 40m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-backend:latest
+                    echo "Scanning backend image..."
 
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         aquasec/trivy:latest \
-                        image --timeout 40m --severity HIGH,CRITICAL --exit-code 1 personal-finance-management-frontend:latest
+                        image \
+                        --timeout 40m \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        kittuuu/personal-finance-backend:latest
+
+
+                    echo "Scanning frontend image..."
+
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        aquasec/trivy:latest \
+                        image \
+                        --timeout 40m \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        kittuuu/personal-finance-frontend:latest
+                '''
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USERNAME" \
+                            --password-stdin
+
+                        docker push kittuuu/personal-finance-backend:latest
+                        docker push kittuuu/personal-finance-frontend:latest
+
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                sh '''
+                    echo "Stopping previous deployment..."
+
+                    docker compose \
+                        -f docker-compose.deploy.yml \
+                        down
+
+                    echo "Pulling latest images..."
+
+                    docker compose \
+                        -f docker-compose.deploy.yml \
+                        pull
+
+                    echo "Starting deployment..."
+
+                    docker compose \
+                        -f docker-compose.deploy.yml \
+                        up -d
+                '''
+            }
+        }
+
+        stage('Deployment Verification') {
+            steps {
+                sh '''
+                    echo "Waiting for containers to initialize..."
+                    sleep 20
+
+                    echo "========== CONTAINER STATUS =========="
+
+                    docker compose \
+                        -f docker-compose.deploy.yml \
+                        ps
+
+                    echo "========== DOCKER PS =========="
+
+                    docker ps
+
+                    echo "========== MYSQL HEALTH =========="
+
+                    MYSQL_STATUS=$(docker inspect \
+                        -f '{{.State.Health.Status}}' \
+                        finance-mysql)
+
+                    echo "MySQL status: $MYSQL_STATUS"
+
+                    if [ "$MYSQL_STATUS" != "healthy" ]; then
+                        echo "ERROR: MySQL is not healthy."
+
+                        docker logs finance-mysql --tail 100
+
+                        exit 1
+                    fi
+
+                    echo "========== BACKEND STATUS =========="
+
+                    BACKEND_STATUS=$(docker inspect \
+                        -f '{{.State.Status}}' \
+                        finance-backend)
+
+                    echo "Backend status: $BACKEND_STATUS"
+
+                    if [ "$BACKEND_STATUS" != "running" ]; then
+                        echo "ERROR: Backend is not running."
+
+                        docker logs finance-backend --tail 100
+
+                        exit 1
+                    fi
+
+                    echo "========== FRONTEND STATUS =========="
+
+                    FRONTEND_STATUS=$(docker inspect \
+                        -f '{{.State.Status}}' \
+                        finance-frontend)
+
+                    echo "Frontend status: $FRONTEND_STATUS"
+
+                    if [ "$FRONTEND_STATUS" != "running" ]; then
+                        echo "ERROR: Frontend is not running."
+
+                        docker logs finance-frontend --tail 100
+
+                        exit 1
+                    fi
+
+                    echo "======================================"
+                    echo "DEPLOYMENT VERIFICATION SUCCESSFUL"
+                    echo "======================================"
                 '''
             }
         }
@@ -108,10 +246,36 @@ pipeline {
 
     post {
         success {
-            echo ' CI pipeline completed successfully! All security and quality gates passed.'
+            echo '''
+            CI/CD pipeline completed successfully!
+
+            Security:
+            - Gitleaks
+            - SonarQube
+            - OWASP Dependency-Check
+            - Trivy
+
+            Deployment:
+            - Docker Hub Push
+            - Docker Compose Deployment
+            - Deployment Verification
+            '''
         }
+
         failure {
-            echo ' CI pipeline failed due to build errors, security vulnerabilities, or secrets detected!'
+            echo '''
+            CI/CD pipeline failed.
+
+            Check the failed stage and Jenkins console output.
+            Possible causes:
+            - Tests failed
+            - Security scan failed
+            - Docker build failed
+            - Docker Hub authentication failed
+            - Docker push failed
+            - Deployment failed
+            - Container health check failed
+            '''
         }
     }
 }
