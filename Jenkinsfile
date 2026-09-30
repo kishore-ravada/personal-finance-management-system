@@ -189,23 +189,23 @@ pipeline {
                 '''
             }
         }
-     } 
 
-     stage('OWASP ZAP DAST') {
-       steps {
-           sh '''
-              mkdir -p zap-report
+        stage('OWASP ZAP DAST') {
+            steps {
+                sh '''
+                    mkdir -p zap-report
 
-                docker run --rm \
-                --network personal-finance-management-system_finance-net \
-                -v "$WORKSPACE/zap-report:/zap/wrk/:rw" \
-                ghcr.io/zaproxy/zaproxy:stable \
-                zap-baseline.py \
-                -t http://frontend \
-                -r zap-report.html
-             '''
-             }
+                    docker run --rm \
+                        --network personal-finance-management-system_finance-net \
+                        -v "$WORKSPACE/zap-report:/zap/wrk/:rw" \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap-baseline.py \
+                        -t http://frontend \
+                        -r zap-report.html
+                '''
+            }
         }
+    } 
 
     post {
         success {
@@ -217,6 +217,7 @@ pipeline {
             - SonarQube
             - OWASP Dependency-Check
             - Trivy
+            - OWASP ZAP DAST
 
             Deployment:
             - Docker Hub Push
@@ -238,6 +239,7 @@ pipeline {
             - Docker push failed
             - Deployment failed
             - Container health check failed
+            - DAST scan failed
             '''
         }
     }
