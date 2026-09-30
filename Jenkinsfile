@@ -138,11 +138,11 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 sh '''
-                    echo "Stopping previous deployment..."
+                    echo "Stopping and cleaning previous deployment..."
 
                     docker compose \
                         -f docker-compose.deploy.yml \
-                        down
+                        down --remove-orphans || true
 
                     echo "Pulling latest images..."
 
