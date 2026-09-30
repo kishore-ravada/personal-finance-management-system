@@ -138,20 +138,20 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 sh '''
-                    echo "Stopping and cleaning previous deployment..."
+                    echo "Force cleaning any lingering conflicting containers..."
+                    docker rm -f finance-mysql finance-backend finance-frontend || true
 
+                    echo "Stopping and cleaning previous deployment..."
                     docker compose \
                         -f docker-compose.deploy.yml \
                         down --remove-orphans || true
 
                     echo "Pulling latest images..."
-
                     docker compose \
                         -f docker-compose.deploy.yml \
                         pull
 
                     echo "Starting deployment..."
-
                     docker compose \
                         -f docker-compose.deploy.yml \
                         up -d
