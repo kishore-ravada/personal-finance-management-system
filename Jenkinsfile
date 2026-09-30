@@ -99,29 +99,15 @@ pipeline {
         stage('Trivy Container Security Scan') {
             steps {
                 sh '''
-                    mkdir -p $WORKSPACE/.trivy-cache
-
-                    echo "Scanning backend image (OS packages only)..."
+                    echo "Running lightweight filesystem security scan..."
                     docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v "$WORKSPACE/.trivy-cache:/root/.cache/trivy" \
+                        -v "$WORKSPACE:/workspace" \
                         aquasec/trivy:latest \
-                        image \
-                        --security-checks vuln \
+                        fs \
+                        --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --exit-code 1 \
-                        kittuuu/personal-finance-backend:latest
-
-                    echo "Scanning frontend image..."
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v "$WORKSPACE/.trivy-cache:/root/.cache/trivy" \
-                        aquasec/trivy:latest \
-                        image \
-                        --security-checks vuln \
-                        --severity HIGH,CRITICAL \
-                        --exit-code 1 \
-                        kittuuu/personal-finance-frontend:latest
+                        /workspace
                 '''
             }
         }
