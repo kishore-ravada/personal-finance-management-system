@@ -189,6 +189,8 @@ pipeline {
                 '''
             }
         }
+    } // <--- THIS CLOSING BRACE FOR 'stages' WAS MISSING!
+
     post {
         success {
             echo '''
