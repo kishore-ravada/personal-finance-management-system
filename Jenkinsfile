@@ -208,7 +208,12 @@ pipeline {
     } 
 
     post {
-        success {
+
+        always {
+        archiveArtifacts artifacts: 'zap-report/zap-report.html',
+                         allowEmptyArchive: true
+         }
+           success {
             echo '''
             CI/CD pipeline completed successfully!
 
