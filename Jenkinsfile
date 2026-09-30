@@ -189,7 +189,23 @@ pipeline {
                 '''
             }
         }
-    } // <--- THIS CLOSING BRACE FOR 'stages' WAS MISSING!
+     } 
+
+     stage('OWASP ZAP DAST') {
+       steps {
+           sh '''
+              mkdir -p zap-report
+
+                docker run --rm \
+                --network personal-finance-management-system_finance-net \
+                -v "$WORKSPACE/zap-report:/zap/wrk/:rw" \
+                ghcr.io/zaproxy/zaproxy:stable \
+                zap-baseline.py \
+                -t http://frontend \
+                -r zap-report.html
+        '''
+    }
+}
 
     post {
         success {
