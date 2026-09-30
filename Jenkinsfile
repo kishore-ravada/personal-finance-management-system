@@ -203,9 +203,9 @@ pipeline {
                 zap-baseline.py \
                 -t http://frontend \
                 -r zap-report.html
-        '''
-    }
-}
+             '''
+             }
+        }
 
     post {
         success {
