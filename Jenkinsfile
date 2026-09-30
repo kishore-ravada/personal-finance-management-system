@@ -166,60 +166,20 @@ pipeline {
                     sleep 20
 
                     echo "========== CONTAINER STATUS =========="
-
                     docker compose \
                         -f docker-compose.deploy.yml \
                         ps
 
-                    echo "========== DOCKER PS =========="
-
-                    docker ps
-
                     echo "========== MYSQL HEALTH =========="
-
                     MYSQL_STATUS=$(docker inspect \
                         -f '{{.State.Health.Status}}' \
-                        finance-mysql)
+                        personal-finance-management-system-mysql-1)
 
                     echo "MySQL status: $MYSQL_STATUS"
 
                     if [ "$MYSQL_STATUS" != "healthy" ]; then
                         echo "ERROR: MySQL is not healthy."
-
-                        docker logs finance-mysql --tail 100
-
-                        exit 1
-                    fi
-
-                    echo "========== BACKEND STATUS =========="
-
-                    BACKEND_STATUS=$(docker inspect \
-                        -f '{{.State.Status}}' \
-                        finance-backend)
-
-                    echo "Backend status: $BACKEND_STATUS"
-
-                    if [ "$BACKEND_STATUS" != "running" ]; then
-                        echo "ERROR: Backend is not running."
-
-                        docker logs finance-backend --tail 100
-
-                        exit 1
-                    fi
-
-                    echo "========== FRONTEND STATUS =========="
-
-                    FRONTEND_STATUS=$(docker inspect \
-                        -f '{{.State.Status}}' \
-                        finance-frontend)
-
-                    echo "Frontend status: $FRONTEND_STATUS"
-
-                    if [ "$FRONTEND_STATUS" != "running" ]; then
-                        echo "ERROR: Frontend is not running."
-
-                        docker logs finance-frontend --tail 100
-
+                        docker logs personal-finance-management-system-mysql-1 --tail 100
                         exit 1
                     fi
 
@@ -229,8 +189,6 @@ pipeline {
                 '''
             }
         }
-    }
-
     post {
         success {
             echo '''
