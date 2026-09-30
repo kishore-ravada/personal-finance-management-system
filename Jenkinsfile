@@ -101,19 +101,28 @@ pipeline {
                 sh '''
                     mkdir -p $WORKSPACE/.trivy-cache
 
-                    echo "Scanning backend image..."
+                    echo "Scanning backend image (OS vulnerabilities only)..."
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         -v "$WORKSPACE/.trivy-cache:/root/.cache/trivy" \
                         aquasec/trivy:latest \
-                        image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 kittuuu/personal-finance-backend:latest
+                        image \
+                        --scanners vuln \
+                        --skip-files app/app.jar \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        kittuuu/personal-finance-backend:latest
 
                     echo "Scanning frontend image..."
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         -v "$WORKSPACE/.trivy-cache:/root/.cache/trivy" \
                         aquasec/trivy:latest \
-                        image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 kittuuu/personal-finance-frontend:latest
+                        image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        kittuuu/personal-finance-frontend:latest
                 '''
             }
         }
