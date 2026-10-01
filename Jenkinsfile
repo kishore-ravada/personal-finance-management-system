@@ -12,15 +12,14 @@ pipeline {
             }
         }
 
-
         // ============================================================
-        // 2. GITLEAKS SECRET SCAN
+        // 2. GITLEAKS
         // ============================================================
         stage('Gitleaks Secret Scan') {
             steps {
                 sh '''
                     echo "=========================================="
-                    echo "Running Gitleaks Secret Scan"
+                    echo "GITLEAKS SECRET SCAN"
                     echo "=========================================="
 
                     docker run --rm \
@@ -35,7 +34,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 3. BACKEND TEST
         // ============================================================
@@ -44,7 +42,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         echo "=========================================="
-                        echo "Running Backend Tests"
+                        echo "BACKEND TEST"
                         echo "=========================================="
 
                         rm -rf ~/.m2/repository/org/apache/maven/surefire
@@ -57,7 +55,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 4. FRONTEND TEST & BUILD
         // ============================================================
@@ -66,7 +63,7 @@ pipeline {
                 dir('frontend') {
                     sh '''
                         echo "=========================================="
-                        echo "Running Frontend Tests"
+                        echo "FRONTEND TEST & BUILD"
                         echo "=========================================="
 
                         npm install
@@ -77,7 +74,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 5. BACKEND BUILD
         // ============================================================
@@ -86,7 +82,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         echo "=========================================="
-                        echo "Building Backend"
+                        echo "BACKEND BUILD"
                         echo "=========================================="
 
                         mvn package -DskipTests -U \
@@ -97,7 +93,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 6. SONARQUBE
         // ============================================================
@@ -105,12 +100,11 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
-
                         def scannerHome = tool 'SonarScanner'
 
                         sh """
                             echo "=========================================="
-                            echo "Running SonarQube Analysis"
+                            echo "SONARQUBE ANALYSIS"
                             echo "=========================================="
 
                             ${scannerHome}/bin/sonar-scanner \
@@ -125,7 +119,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 7. OWASP DEPENDENCY-CHECK
         // ============================================================
@@ -133,7 +126,7 @@ pipeline {
             steps {
                 sh '''
                     echo "=========================================="
-                    echo "Running OWASP Dependency-Check"
+                    echo "OWASP DEPENDENCY-CHECK"
                     echo "=========================================="
 
                     mkdir -p dependency-check-report
@@ -147,7 +140,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 8. DOCKER BUILD
         // ============================================================
@@ -155,7 +147,7 @@ pipeline {
             steps {
                 sh '''
                     echo "=========================================="
-                    echo "Building Docker Images"
+                    echo "DOCKER BUILD"
                     echo "=========================================="
 
                     docker build \
@@ -166,21 +158,21 @@ pipeline {
                         -t kittuuu/personal-finance-frontend:latest \
                         ./frontend
 
-                    echo "Docker images built successfully."
+                    echo ""
+                    echo "Docker images:"
                     docker images | grep personal-finance
                 '''
             }
         }
 
-
         // ============================================================
-        // 9. TRIVY CONTAINER SECURITY SCAN
+        // 9. TRIVY
         // ============================================================
         stage('Trivy Container Security Scan') {
             steps {
                 sh '''
                     echo "=========================================="
-                    echo "Running Trivy Security Scan"
+                    echo "TRIVY CONTAINER SECURITY SCAN"
                     echo "=========================================="
 
                     docker run --rm \
@@ -195,13 +187,11 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 10. DOCKER HUB PUSH
         // ============================================================
         stage('Docker Push') {
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -209,31 +199,25 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
-
                     sh '''
                         echo "=========================================="
-                        echo "Logging into Docker Hub"
+                        echo "DOCKER HUB PUSH"
                         echo "=========================================="
 
                         echo "$DOCKER_PASSWORD" | docker login \
                             -u "$DOCKER_USERNAME" \
                             --password-stdin
 
-                        echo "Pushing backend image..."
                         docker push kittuuu/personal-finance-backend:latest
-
-                        echo "Pushing frontend image..."
                         docker push kittuuu/personal-finance-frontend:latest
 
-                        echo "Logging out from Docker Hub..."
                         docker logout
 
-                        echo "Docker Hub push completed successfully."
+                        echo "Docker Hub push completed."
                     '''
                 }
             }
         }
-
 
         // ============================================================
         // 11. DEPLOY APPLICATION
@@ -242,38 +226,47 @@ pipeline {
             steps {
                 sh '''
                     echo "=========================================="
-                    echo "DEPLOYING APPLICATION"
+                    echo "DEPLOY APPLICATION"
                     echo "=========================================="
 
-                    echo "Workspace:"
+                    echo "Current workspace:"
                     pwd
 
-                    echo "Checking deployment compose file..."
+                    echo ""
+                    echo "Checking deployment compose file:"
                     ls -la docker-compose.deploy.yml
 
+                    echo ""
                     echo "Stopping previous deployment..."
+
                     docker compose \
                         -f docker-compose.deploy.yml \
                         down --remove-orphans || true
 
+                    echo ""
                     echo "Removing old conflicting containers..."
+
                     docker rm -f finance-mysql finance-backend finance-frontend || true
 
+                    echo ""
                     echo "Pulling latest Docker Hub images..."
+
                     docker compose \
                         -f docker-compose.deploy.yml \
                         pull
 
+                    echo ""
                     echo "Starting deployment..."
+
                     docker compose \
                         -f docker-compose.deploy.yml \
                         up -d
 
-                    echo "Deployment command completed."
+                    echo ""
+                    echo "Deployment started."
                 '''
             }
         }
-
 
         // ============================================================
         // 12. DEPLOYMENT VERIFICATION
@@ -285,19 +278,22 @@ pipeline {
                     echo "DEPLOYMENT VERIFICATION"
                     echo "=========================================="
 
-                    echo "Waiting for application containers..."
+                    echo "Waiting for containers..."
                     sleep 20
 
                     echo ""
-                    echo "========== DOCKER COMPOSE STATUS =========="
+                    echo "========== COMPOSE STATUS =========="
+
                     docker compose \
                         -f docker-compose.deploy.yml \
                         ps
 
                     echo ""
                     echo "========== RUNNING CONTAINERS =========="
+
                     docker ps
 
+                    // MYSQL
                     echo ""
                     echo "========== MYSQL HEALTH =========="
 
@@ -306,7 +302,7 @@ pipeline {
                         ps -q mysql)
 
                     if [ -z "$MYSQL_CONTAINER" ]; then
-                        echo "ERROR: MySQL container was not found."
+                        echo "ERROR: MySQL container not found."
                         exit 1
                     fi
 
@@ -318,12 +314,11 @@ pipeline {
 
                     if [ "$MYSQL_STATUS" != "healthy" ]; then
                         echo "ERROR: MySQL is not healthy."
-
                         docker logs "$MYSQL_CONTAINER" --tail 100
-
                         exit 1
                     fi
 
+                    // BACKEND
                     echo ""
                     echo "========== BACKEND HEALTH =========="
 
@@ -332,7 +327,7 @@ pipeline {
                         ps -q backend)
 
                     if [ -z "$BACKEND_CONTAINER" ]; then
-                        echo "ERROR: Backend container was not found."
+                        echo "ERROR: Backend container not found."
                         exit 1
                     fi
 
@@ -348,6 +343,7 @@ pipeline {
                         exit 1
                     fi
 
+                    // FRONTEND
                     echo ""
                     echo "========== FRONTEND HEALTH =========="
 
@@ -356,7 +352,7 @@ pipeline {
                         ps -q frontend)
 
                     if [ -z "$FRONTEND_CONTAINER" ]; then
-                        echo "ERROR: Frontend container was not found."
+                        echo "ERROR: Frontend container not found."
                         exit 1
                     fi
 
@@ -380,7 +376,6 @@ pipeline {
             }
         }
 
-
         // ============================================================
         // 13. OWASP ZAP DAST
         // ============================================================
@@ -391,20 +386,17 @@ pipeline {
                     echo "OWASP ZAP DAST"
                     echo "=========================================="
 
-                    echo "Creating ZAP report directory..."
+                    echo "Cleaning previous ZAP report..."
 
+                    rm -rf "$WORKSPACE/zap-report"
                     mkdir -p "$WORKSPACE/zap-report"
 
-                    # ZAP runs as a non-root user inside the container.
-                    # Give the mounted report directory write permission.
-                    chmod -R 777 "$WORKSPACE/zap-report"
-
-                    echo "Report directory permissions:"
+                    echo ""
+                    echo "Report directory:"
                     ls -ld "$WORKSPACE/zap-report"
 
                     echo ""
                     echo "Starting ZAP baseline scan..."
-                    echo ""
 
                     docker run --rm \
                         --network personal-finance-management-system_finance-net \
@@ -413,28 +405,37 @@ pipeline {
                         zap-baseline.py \
                         -t http://frontend \
                         -r zap-report.html \
-                        -I
+                        -I || true
 
                     echo ""
-                    echo "ZAP DAST scan completed."
+                    echo "ZAP report directory contents:"
+                    ls -lah "$WORKSPACE/zap-report" || true
+
+                    if [ ! -f "$WORKSPACE/zap-report/zap-report.html" ]; then
+                        echo ""
+                        echo "ERROR: ZAP report was not generated."
+                        exit 1
+                    fi
 
                     echo ""
-                    echo "Generated ZAP files:"
-                    ls -lah "$WORKSPACE/zap-report"
+                    echo "=========================================="
+                    echo "ZAP REPORT GENERATED SUCCESSFULLY"
+                    echo "=========================================="
+
+                    ls -lh "$WORKSPACE/zap-report/zap-report.html"
                 '''
             }
         }
     }
 
-
     // ================================================================
     // POST ACTIONS
     // ================================================================
     post {
-
         always {
-
-            echo "Archiving security reports..."
+            echo "=========================================="
+            echo "ARCHIVING SECURITY REPORTS"
+            echo "=========================================="
 
             archiveArtifacts(
                 artifacts: 'zap-report/zap-report.html',
@@ -447,68 +448,20 @@ pipeline {
             )
         }
 
-
         success {
-
             echo '''
             ==================================================
             CI/CD PIPELINE COMPLETED SUCCESSFULLY
             ==================================================
-
-            SHIFT-LEFT SECURITY
-            -------------------
-            ✓ Gitleaks
-            ✓ Backend Tests
-            ✓ Frontend Tests
-            ✓ SonarQube
-            ✓ OWASP Dependency-Check
-            ✓ Docker Build
-            ✓ Trivy Container Scan
-
-            CONTAINER REGISTRY
-            ------------------
-            ✓ Docker Hub Push
-
-            DEPLOYMENT
-            ----------
-            ✓ Docker Compose Deployment
-            ✓ MySQL Health Verification
-            ✓ Backend Verification
-            ✓ Frontend Verification
-
-            SHIFT-RIGHT SECURITY
-            --------------------
-            ✓ OWASP ZAP DAST
-
-            ==================================================
             '''
         }
 
-
         failure {
-
             echo '''
             ==================================================
             CI/CD PIPELINE FAILED
             ==================================================
-
             Check the failed Jenkins stage and console log.
-
-            Possible causes:
-
-            - Gitleaks detected secrets
-            - Backend tests failed
-            - Frontend tests failed
-            - SonarQube failed
-            - Dependency-Check failed
-            - Docker build failed
-            - Trivy detected vulnerabilities
-            - Docker Hub authentication failed
-            - Docker push failed
-            - Deployment failed
-            - Container health verification failed
-            - OWASP ZAP failed
-
             ==================================================
             '''
         }
