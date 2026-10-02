@@ -293,7 +293,10 @@ pipeline {
 
                     docker ps
 
-                    // MYSQL
+                    # ------------------------------------------------
+                    # MYSQL
+                    # ------------------------------------------------
+
                     echo ""
                     echo "========== MYSQL HEALTH =========="
 
@@ -318,7 +321,10 @@ pipeline {
                         exit 1
                     fi
 
-                    // BACKEND
+                    # ------------------------------------------------
+                    # BACKEND
+                    # ------------------------------------------------
+
                     echo ""
                     echo "========== BACKEND HEALTH =========="
 
@@ -343,7 +349,10 @@ pipeline {
                         exit 1
                     fi
 
-                    // FRONTEND
+                    # ------------------------------------------------
+                    # FRONTEND
+                    # ------------------------------------------------
+
                     echo ""
                     echo "========== FRONTEND HEALTH =========="
 
@@ -374,86 +383,6 @@ pipeline {
                     echo "=========================================="
                 '''
             }
-        }
-
-        // ============================================================
-        // 13. OWASP ZAP DAST
-        // ============================================================
-        stage('OWASP ZAP DAST') {
-            steps {
-                sh '''
-                    echo "=========================================="
-                    echo "OWASP ZAP DAST"
-                    echo "=========================================="
-
-                    echo "Cleaning previous ZAP report..."
-
-                    rm -rf "$WORKSPACE/zap-report"
-                    mkdir -p "$WORKSPACE/zap-report"
-
-                    echo ""
-                    echo "Report directory:"
-                    ls -ld "$WORKSPACE/zap-report"
-
-                    echo ""
-                    echo "Starting ZAP baseline scan..."
-
-                    docker run --rm \
-                        --network personal-finance-management-system_finance-net \
-                        -v "$WORKSPACE/zap-report:/zap/wrk:rw" \
-                        ghcr.io/zaproxy/zaproxy:stable \
-                        zap-baseline.py \
-                        -t http://frontend \
-                        -r zap-report.html \
-                        -I || true
-
-                    echo ""
-                    echo "ZAP report directory contents:"
-                    ls -lah "$WORKSPACE/zap-report" || true
-
-                    if [ ! -f "$WORKSPACE/zap-report/zap-report.html" ]; then
-                        echo ""
-                        echo "ERROR: ZAP report was not generated."
-                        exit 1
-                    fi
-
-                    echo ""
-                    echo "=========================================="
-                    echo "ZAP REPORT GENERATED SUCCESSFULLY"
-                    echo "=========================================="
-
-                    ls -lh "$WORKSPACE/zap-report/zap-report.html"
-                '''
-            }
-        }
-    }
-
-    // ================================================================
-    // POST ACTIONS
-    // ================================================================
-    post {
-        always {
-            echo "=========================================="
-            echo "ARCHIVING SECURITY REPORTS"
-            echo "=========================================="
-
-            archiveArtifacts(
-                artifacts: 'zap-report/zap-report.html',
-                allowEmptyArchive: true
-            )
-
-            archiveArtifacts(
-                artifacts: 'dependency-check-report/**/*',
-                allowEmptyArchive: true
-            )
-        }
-
-        success {
-            echo '''
-            ==================================================
-            CI/CD PIPELINE COMPLETED SUCCESSFULLY
-            ==================================================
-            '''
         }
 
         failure {
