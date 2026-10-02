@@ -12,6 +12,7 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 2. GITLEAKS
         // ============================================================
@@ -34,6 +35,7 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 3. BACKEND TEST
         // ============================================================
@@ -55,6 +57,7 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 4. FRONTEND TEST & BUILD
         // ============================================================
@@ -73,6 +76,7 @@ pipeline {
                 }
             }
         }
+
 
         // ============================================================
         // 5. BACKEND BUILD
@@ -93,6 +97,7 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 6. SONARQUBE
         // ============================================================
@@ -100,6 +105,7 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
+
                         def scannerHome = tool 'SonarScanner'
 
                         sh """
@@ -119,11 +125,13 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 7. OWASP DEPENDENCY-CHECK
         // ============================================================
         stage('OWASP Dependency-Check') {
             steps {
+
                 sh '''
                     echo "=========================================="
                     echo "OWASP DEPENDENCY-CHECK"
@@ -139,6 +147,7 @@ pipeline {
                 )
             }
         }
+
 
         // ============================================================
         // 8. DOCKER BUILD
@@ -165,6 +174,7 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 9. TRIVY
         // ============================================================
@@ -187,11 +197,13 @@ pipeline {
             }
         }
 
+
         // ============================================================
         // 10. DOCKER HUB PUSH
         // ============================================================
         stage('Docker Push') {
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -199,6 +211,7 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
+
                     sh '''
                         echo "=========================================="
                         echo "DOCKER HUB PUSH"
@@ -218,6 +231,7 @@ pipeline {
                 }
             }
         }
+
 
         // ============================================================
         // 11. DEPLOY APPLICATION
@@ -267,6 +281,7 @@ pipeline {
                 '''
             }
         }
+
 
         // ============================================================
         // 12. DEPLOYMENT VERIFICATION
@@ -321,6 +336,7 @@ pipeline {
                         exit 1
                     fi
 
+
                     # ------------------------------------------------
                     # BACKEND
                     # ------------------------------------------------
@@ -348,6 +364,7 @@ pipeline {
                         docker logs "$BACKEND_CONTAINER" --tail 100
                         exit 1
                     fi
+
 
                     # ------------------------------------------------
                     # FRONTEND
@@ -377,6 +394,7 @@ pipeline {
                         exit 1
                     fi
 
+
                     echo ""
                     echo "=========================================="
                     echo "DEPLOYMENT VERIFICATION SUCCESSFUL"
@@ -384,18 +402,154 @@ pipeline {
                 '''
             }
         }
+
+
+        // ============================================================
+        // 13. OWASP ZAP DAST
+        // ============================================================
+        stage('OWASP ZAP DAST') {
+            steps {
+                sh '''
+                    echo "=========================================="
+                    echo "OWASP ZAP DAST"
+                    echo "=========================================="
+
+                    echo "Cleaning previous ZAP report..."
+
+                    rm -rf "$WORKSPACE/zap-report"
+                    mkdir -p "$WORKSPACE/zap-report"
+
+                    echo ""
+                    echo "Report directory:"
+                    ls -ld "$WORKSPACE/zap-report"
+
+                    echo ""
+                    echo "Starting ZAP baseline scan..."
+
+                    docker run --rm \
+                        --network personal-finance-management-system_finance-net \
+                        -v "$WORKSPACE/zap-report:/zap/wrk:rw" \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap-baseline.py \
+                        -t http://frontend \
+                        -r zap-report.html \
+                        -I
+
+                    ZAP_EXIT=$?
+
+                    echo ""
+                    echo "ZAP exit code: $ZAP_EXIT"
+
+                    echo ""
+                    echo "ZAP report directory contents:"
+                    ls -lah "$WORKSPACE/zap-report" || true
+
+                    if [ ! -f "$WORKSPACE/zap-report/zap-report.html" ]; then
+                        echo ""
+                        echo "ERROR: ZAP report was not generated."
+                        exit 1
+                    fi
+
+                    echo ""
+                    echo "=========================================="
+                    echo "ZAP REPORT GENERATED SUCCESSFULLY"
+                    echo "=========================================="
+
+                    ls -lh "$WORKSPACE/zap-report/zap-report.html"
+
+                    exit 0
+                '''
+            }
+        }
     }
+
 
     // ================================================================
     // POST ACTIONS
     // ================================================================
     post {
+
+        always {
+
+            echo "=========================================="
+            echo "ARCHIVING SECURITY REPORTS"
+            echo "=========================================="
+
+            archiveArtifacts(
+                artifacts: 'zap-report/zap-report.html',
+                allowEmptyArchive: true
+            )
+
+            archiveArtifacts(
+                artifacts: 'dependency-check-report/**/*',
+                allowEmptyArchive: true
+            )
+        }
+
+
+        success {
+
+            echo '''
+            ==================================================
+            CI/CD PIPELINE COMPLETED SUCCESSFULLY
+            ==================================================
+
+            SHIFT-LEFT SECURITY
+            -------------------
+            ✓ Gitleaks
+            ✓ Backend Tests
+            ✓ Frontend Tests
+            ✓ SonarQube
+            ✓ OWASP Dependency-Check
+            ✓ Docker Build
+            ✓ Trivy Container Scan
+
+            CONTAINER REGISTRY
+            ------------------
+            ✓ Docker Hub Push
+
+            DEPLOYMENT
+            ----------
+            ✓ Docker Compose Deployment
+            ✓ MySQL Health Verification
+            ✓ Backend Verification
+            ✓ Frontend Verification
+
+            SHIFT-RIGHT SECURITY
+            --------------------
+            ✓ OWASP ZAP DAST
+            ✓ ZAP HTML Report
+
+            ==================================================
+            '''
+        }
+
+
         failure {
+
             echo '''
             ==================================================
             CI/CD PIPELINE FAILED
             ==================================================
+
             Check the failed Jenkins stage and console log.
+
+            Possible causes:
+
+            - Gitleaks detected secrets
+            - Backend tests failed
+            - Frontend tests failed
+            - SonarQube failed
+            - Dependency-Check failed
+            - Docker build failed
+            - Trivy detected vulnerabilities
+            - Docker Hub authentication failed
+            - Docker push failed
+            - Deployment failed
+            - Container health verification failed
+            - OWASP ZAP failed
+            - ZAP report generation failed
+
             ==================================================
             '''
         }
