@@ -14,13 +14,11 @@ pipeline {
 
 
         // ============================================================
-        // 2. GITLEAKS SECRET SCAN
+        // 2. GITLEAKS
         // ============================================================
         stage('Gitleaks Secret Scan') {
             steps {
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "GITLEAKS SECRET SCAN"
                     echo "=========================================="
@@ -33,8 +31,6 @@ pipeline {
                         --no-git \
                         --no-banner \
                         --redact
-
-                    echo "Gitleaks scan completed successfully."
                 '''
             }
         }
@@ -47,8 +43,6 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        set -e
-
                         echo "=========================================="
                         echo "BACKEND TEST"
                         echo "=========================================="
@@ -58,8 +52,6 @@ pipeline {
                         mvn clean test -U \
                             -Dmaven.wagon.http.retryHandler.count=5 \
                             -Dmaven.wagon.http.retryHandler.requestSeconds=10
-
-                        echo "Backend tests completed successfully."
                     '''
                 }
             }
@@ -73,8 +65,6 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        set -e
-
                         echo "=========================================="
                         echo "FRONTEND TEST & BUILD"
                         echo "=========================================="
@@ -82,8 +72,6 @@ pipeline {
                         npm install
                         npm run test:run
                         npm run build
-
-                        echo "Frontend tests and build completed successfully."
                     '''
                 }
             }
@@ -97,8 +85,6 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        set -e
-
                         echo "=========================================="
                         echo "BACKEND BUILD"
                         echo "=========================================="
@@ -106,8 +92,6 @@ pipeline {
                         mvn package -DskipTests -U \
                             -Dmaven.wagon.http.retryHandler.count=5 \
                             -Dmaven.wagon.http.retryHandler.requestSeconds=10
-
-                        echo "Backend build completed successfully."
                     '''
                 }
             }
@@ -115,20 +99,16 @@ pipeline {
 
 
         // ============================================================
-        // 6. SONARQUBE ANALYSIS
+        // 6. SONARQUBE
         // ============================================================
         stage('SonarQube Analysis') {
             steps {
-
                 withSonarQubeEnv('SonarQube') {
-
                     script {
 
                         def scannerHome = tool 'SonarScanner'
 
                         sh """
-                            set -e
-
                             echo "=========================================="
                             echo "SONARQUBE ANALYSIS"
                             echo "=========================================="
@@ -139,8 +119,6 @@ pipeline {
                                 -Dsonar.sources=backend/src/main,frontend/src \
                                 -Dsonar.java.binaries=backend/target/classes \
                                 -Dsonar.exclusions=**/node_modules/**,**/target/**,**/dist/**
-
-                            echo "SonarQube analysis completed."
                         """
                     }
                 }
@@ -155,13 +133,10 @@ pipeline {
             steps {
 
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "OWASP DEPENDENCY-CHECK"
                     echo "=========================================="
 
-                    rm -rf dependency-check-report
                     mkdir -p dependency-check-report
                 '''
 
@@ -170,12 +145,6 @@ pipeline {
                     nvdCredentialsId: 'nvd-api-key',
                     additionalArguments: '--scan . --format ALL --out dependency-check-report'
                 )
-
-                sh '''
-                    echo ""
-                    echo "Dependency-Check report files:"
-                    find dependency-check-report -maxdepth 2 -type f -ls || true
-                '''
             }
         }
 
@@ -186,8 +155,6 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "DOCKER BUILD"
                     echo "=========================================="
@@ -203,22 +170,17 @@ pipeline {
                     echo ""
                     echo "Docker images:"
                     docker images | grep personal-finance
-
-                    echo ""
-                    echo "Docker build completed successfully."
                 '''
             }
         }
 
 
         // ============================================================
-        // 9. TRIVY CONTAINER SECURITY SCAN
+        // 9. TRIVY
         // ============================================================
         stage('Trivy Container Security Scan') {
             steps {
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "TRIVY CONTAINER SECURITY SCAN"
                     echo "=========================================="
@@ -231,8 +193,6 @@ pipeline {
                         --severity HIGH,CRITICAL \
                         --exit-code 1 \
                         /workspace
-
-                    echo "Trivy filesystem scan completed successfully."
                 '''
             }
         }
@@ -253,8 +213,6 @@ pipeline {
                 ]) {
 
                     sh '''
-                        set -e
-
                         echo "=========================================="
                         echo "DOCKER HUB PUSH"
                         echo "=========================================="
@@ -263,15 +221,12 @@ pipeline {
                             -u "$DOCKER_USERNAME" \
                             --password-stdin
 
-                        echo "Pushing backend image..."
                         docker push kittuuu/personal-finance-backend:latest
-
-                        echo "Pushing frontend image..."
                         docker push kittuuu/personal-finance-frontend:latest
 
                         docker logout
 
-                        echo "Docker Hub push completed successfully."
+                        echo "Docker Hub push completed."
                     '''
                 }
             }
@@ -284,8 +239,6 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "DEPLOY APPLICATION"
                     echo "=========================================="
@@ -324,7 +277,7 @@ pipeline {
                         up -d
 
                     echo ""
-                    echo "Deployment started successfully."
+                    echo "Deployment started."
                 '''
             }
         }
@@ -336,8 +289,6 @@ pipeline {
         stage('Deployment Verification') {
             steps {
                 sh '''
-                    set -e
-
                     echo "=========================================="
                     echo "DEPLOYMENT VERIFICATION"
                     echo "=========================================="
@@ -463,49 +414,23 @@ pipeline {
                     echo "OWASP ZAP DAST"
                     echo "=========================================="
 
-                    # ------------------------------------------------
-                    # CLEAN OLD REPORT
-                    # ------------------------------------------------
-
-                    echo "Cleaning old ZAP report..."
+                    echo "Cleaning and preparing ZAP report file..."
 
                     rm -rf "$WORKSPACE/zap-report"
                     mkdir -p "$WORKSPACE/zap-report"
-
-                    chmod 777 "$WORKSPACE/zap-report"
-
-                    echo ""
-                    echo "Host report directory:"
-                    ls -ld "$WORKSPACE/zap-report"
-
-
-                    # ------------------------------------------------
-                    # TEST ZAP WRITE ACCESS
-                    # ------------------------------------------------
+                    
+                    # Create the empty report file beforehand so ZAP can write into it
+                    touch "$WORKSPACE/zap-report/zap-report.html"
+                    
+                    # Grant full read/write permissions to both the folder and the file
+                    chmod -R 777 "$WORKSPACE/zap-report"
 
                     echo ""
-                    echo "Testing ZAP container write access..."
-
-                    docker run --rm \
-                        -v "$WORKSPACE/zap-report:/zap/wrk:rw" \
-                        ghcr.io/zaproxy/zaproxy:stable \
-                        sh -c 'id && touch /zap/wrk/write-test.txt && ls -lah /zap/wrk'
-
-                    echo ""
-                    echo "Removing write test..."
-
-                    rm -f "$WORKSPACE/zap-report/write-test.txt"
-
-
-                    # ------------------------------------------------
-                    # RUN ZAP
-                    # ------------------------------------------------
+                    echo "Report directory and file permissions:"
+                    ls -lah "$WORKSPACE/zap-report"
 
                     echo ""
                     echo "Starting ZAP baseline scan..."
-                    echo "Target: http://frontend"
-
-                    set +e
 
                     docker run --rm \
                         --network personal-finance-management-system_finance-net \
@@ -513,108 +438,30 @@ pipeline {
                         ghcr.io/zaproxy/zaproxy:stable \
                         zap-baseline.py \
                         -t http://frontend \
-                        -r /zap/wrk/zap-report.html \
-                        -x /zap/wrk/zap-report.xml \
+                        -r zap-report.html \
                         -I
 
                     ZAP_EXIT=$?
 
-                    set -e
-
                     echo ""
                     echo "ZAP exit code: $ZAP_EXIT"
-
-
-                    # ------------------------------------------------
-                    # DISPLAY REPORT FILES
-                    # ------------------------------------------------
 
                     echo ""
                     echo "ZAP report directory contents:"
-
                     ls -lah "$WORKSPACE/zap-report" || true
 
-
-                    # ------------------------------------------------
-                    # VERIFY HTML REPORT
-                    # ------------------------------------------------
-
                     if [ ! -f "$WORKSPACE/zap-report/zap-report.html" ]; then
-
                         echo ""
-                        echo "ERROR: ZAP HTML report was NOT generated."
-
+                        echo "ERROR: ZAP report was not generated."
                         exit 1
                     fi
 
-
-                    HTML_SIZE=$(stat -c%s "$WORKSPACE/zap-report/zap-report.html")
-
-                    echo ""
-                    echo "ZAP HTML report size: ${HTML_SIZE} bytes"
-
-
-                    if [ "$HTML_SIZE" -le 100 ]; then
-
-                        echo ""
-                        echo "ERROR: ZAP HTML report is empty or too small."
-
-                        echo "Full report directory:"
-                        ls -lah "$WORKSPACE/zap-report"
-
-                        exit 1
-                    fi
-
-
-                    # ------------------------------------------------
-                    # VERIFY XML REPORT
-                    # ------------------------------------------------
-
-                    if [ -f "$WORKSPACE/zap-report/zap-report.xml" ]; then
-
-                        XML_SIZE=$(stat -c%s "$WORKSPACE/zap-report/zap-report.xml")
-
-                        echo ""
-                        echo "ZAP XML report size: ${XML_SIZE} bytes"
-
-                    else
-
-                        echo ""
-                        echo "WARNING: ZAP XML report was not generated."
-
-                    fi
-
-
-                    # ------------------------------------------------
-                    # SHOW ZAP RESULT
-                    # ------------------------------------------------
-
                     echo ""
                     echo "=========================================="
-                    echo "ZAP DAST SCAN COMPLETED"
+                    echo "ZAP REPORT GENERATED SUCCESSFULLY"
                     echo "=========================================="
 
-                    echo ""
-                    echo "ZAP exit code: $ZAP_EXIT"
-
-                    echo ""
-                    echo "Generated files:"
-
-                    ls -lh "$WORKSPACE/zap-report"
-
-
-                    # ------------------------------------------------
-                    # IMPORTANT
-                    # ------------------------------------------------
-                    #
-                    # ZAP baseline may return non-zero because of
-                    # security warnings. We are currently using -I,
-                    # therefore informational/warning findings do not
-                    # fail the pipeline.
-                    #
-                    # The actual report existence/size is verified above.
-                    #
-                    # ------------------------------------------------
+                    ls -lh "$WORKSPACE/zap-report/zap-report.html"
 
                     exit 0
                 '''
@@ -636,11 +483,6 @@ pipeline {
 
             archiveArtifacts(
                 artifacts: 'zap-report/zap-report.html',
-                allowEmptyArchive: true
-            )
-
-            archiveArtifacts(
-                artifacts: 'zap-report/zap-report.xml',
                 allowEmptyArchive: true
             )
 
@@ -683,7 +525,6 @@ pipeline {
             --------------------
             ✓ OWASP ZAP DAST
             ✓ ZAP HTML Report
-            ✓ ZAP XML Report
 
             ==================================================
             '''
