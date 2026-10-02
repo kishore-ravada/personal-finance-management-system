@@ -407,6 +407,9 @@ pipeline {
         // ============================================================
         // 13. OWASP ZAP DAST
         // ============================================================
+        // ============================================================
+        // 13. OWASP ZAP DAST
+        // ============================================================
         stage('OWASP ZAP DAST') {
             steps {
                 sh '''
@@ -414,10 +417,13 @@ pipeline {
                     echo "OWASP ZAP DAST"
                     echo "=========================================="
 
-                    echo "Cleaning previous ZAP report..."
+                    echo "Cleaning and setting permissions for ZAP report..."
 
                     rm -rf "$WORKSPACE/zap-report"
                     mkdir -p "$WORKSPACE/zap-report"
+                    
+                    # Grant write permissions so the ZAP internal user can write reports
+                    chmod 777 "$WORKSPACE/zap-report"
 
                     echo ""
                     echo "Report directory:"
