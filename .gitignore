@@ -17,3 +17,6 @@ Thumbs.db
 
 # Docker persistent data
 mysql_data/
+
+# Diagnostic and scratch files
+swagger-*.json
